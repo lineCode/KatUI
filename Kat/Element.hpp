@@ -9,32 +9,37 @@ namespace Kat
     }
 	class Form;
 
+	typedef std::function<void(Point,ButtonType)> MouseEvent;
+
     class Element
 	{
 		//friend Form;
 	protected:
-		Marign GetRelativeMarign(Element* root)
-		{
-			Marign marign;
-			Element* tmp = this;
-			while (tmp != root)
-			{
-				marign.left += tmp->Left;
-				marign.top += tmp->Top;
-				marign.right += tmp->Right;
-				marign.bottom += tmp->Bottom;
-				tmp = tmp->parent;
-			}
-			return marign;
-		}
-		Element* parent;
-		Element* owner;
+		Element* parent = nullptr;
+		Element* owner = nullptr;
+		
+		Element* selected = nullptr;
+		Element* highlight = nullptr;
+
 		ChangeEvent OnChange;
 		ChangeEvent callback = [&] {if (OnChange)OnChange();};
 
+	public:
+		Style style;
+	    //***************************Events**************************************************************************************
+		MouseEvent MouseDown;
+		MouseEvent MouseUp;
+		MouseEvent MouseMove;
+		Event Resize;
+		Event Click;
+		Event MouseEnter;
+		Event MouseExit;
+		Event Selected;
+		Event UnSelected;
+
 		//***************************override in derived classes***********************************************************
 		virtual void Paint(CrossPlatform::Graphic* graphic) {};
-	public:
+
 		virtual void ProcessMsg(Args args)
 		{
 			switch (args.msg)
@@ -42,16 +47,40 @@ namespace Kat
 			case Message::Paint:
 				Paint(args.graphic);
 				break;
+			case Message::Resize:
+				Resize();
+				break;
+			case Message::MouseMove:
+				if(owner->highlight!=nullptr)
+				{
+					Element* tmp = owner->highlight;
+					owner->highlight=this;
+					tmp->MouseExit();
+					MouseEnter();
+				}
+				MouseMove(Point(args.mouse.x-(int)Left,args.mouse.y-(int)Top),args.button);
+				break;
+			case Message::MouseDown:
+				MouseDown(Point(args.mouse.x-(int)Left,args.mouse.y-(int)Top),args.button);
+				break;
+			case Message::MouseUp:
+				if(parent->selected)
+				{
+					Element* tmp = parent->selected;
+					parent->selected=this;
+					tmp->UnSelected();
+					Selected();
+				}
+				MouseUp(Point(args.mouse.x-(int)Left,args.mouse.y-(int)Top),args.button);
+				break;
+			case Message::MouseEnter:
+				MouseEnter();
+				break;
+			case Message::MouseExit:
+				MouseExit();
+				break;
 			}
 		};
-		//***************************Events**************************************************************************************
-		ClickEvent     Click;
-		MouseEnterEvent OnMouseEnter;
-		MouseExitEvent  OnMouseExit;
-		MouseDownEvent  OnMouseDown;
-		MouseUpEvent    OnMouseUp;
-		GotFocusEvent   OnGotFocus;
-		LostFocusEvent  OnLostFocus;
 		//***************************Location**************************************************************************************
 		Property<int>       Left = Property<int>(callback, 0);
 		Property<int>       Top = Property<int>(callback, 0);
@@ -66,11 +95,26 @@ namespace Kat
 		Property<Element*>  Content = Property<Element*>([&] {return Content;}, [&](Element* e) {Content = e;e->parent = this;e->foreach([&](Element* element) {element->owner = this->owner;});});
 		//***************************************************************************************************************************
 
-		void foreach(std::function<void(Element* element)> loop)
+		virtual void foreach(std::function<void(Element* element)> loop)
 		{
 			loop(this);
 			if (Content != nullptr)
-				((Element*)Content)->foreach(loop);
+				Content->foreach(loop);
+		}
+		
+		Marign GetRelativeMarign(Element* root)
+		{
+			Marign marign;
+			Element* tmp = this;
+			while (tmp != root)
+			{
+				marign.left += tmp->Left;
+				marign.top += tmp->Top;
+				marign.right += tmp->Right;
+				marign.bottom += tmp->Bottom;
+				tmp = tmp->parent;
+			}
+			return marign;
 		}
 
 	};

@@ -9,16 +9,34 @@ namespace Kat
 		class Graphic;
 	}
 	enum Direction { Horizontal, Vertical };
-	enum Message { Processed, Click, MouseEnter, MouseExit, MouseMove, MouseDown, MouseUp, Resize, Paint };
-
+	enum Message 
+	{ 
+		Processed, 
+		MouseEnter, 
+		MouseExit, 
+		MouseMove, 
+		MouseDown,
+		MouseUp, 
+		Resize, 
+		Paint 
+	};
+	enum ButtonType {left,middle,right};
 	typedef std::function<void()> ChangeEvent;
-	typedef std::function<void()> ClickEvent;
-	typedef std::function<void()> MouseEnterEvent;
-	typedef std::function<void()> MouseExitEvent;
-	typedef std::function<void()> MouseDownEvent;
-	typedef std::function<void()> MouseUpEvent;
-	typedef std::function<void()> GotFocusEvent;
-	typedef std::function<void()> LostFocusEvent;
+	
+	namespace Animation
+	{
+		class IAnimation;
+	}
+	
+	class Style
+    {
+        std::list<IAnimation*> normal;
+        std::list<IAnimation*> hightlight;
+        std::list<IAnimation*> pressed;
+        std::list<IAnimation*> selected;
+        std::list<IAnimation*> appear;
+        std::list<IAnimation*> disappear;
+    };
 
 	// template<typename T>
 	// class IEnumerable
@@ -96,17 +114,23 @@ namespace Kat
 		}
 	};
 
+	class Point
+	{
+	public:
+		Point()=default;
+		Point(int X, int Y) :x(X), y(Y) {};
+		int x = 0, y = 0;
+	};
+
 	class Args
 	{
 	public:
-		Args(Message msg, CrossPlatform::Graphic* graphic)
-		{
-			this->msg = msg;
-			this->graphic = graphic;
-		}
 		Message msg;
 		CrossPlatform::Graphic* graphic;
+		Point mouse;
+		ButtonType button;
 	};
+	
 
     class Rect
 		{
@@ -152,12 +176,7 @@ namespace Kat
 			}
 		};
 
-		class Point
-		{
-		public:
-			Point(int X, int Y) :x(X), y(Y) {};
-			int x = 0, y = 0;
-		};
+
 }
 
 #endif

@@ -28,6 +28,7 @@
 #include"Helper.hpp"
 #include"Element.hpp"
 #include"PlatformAPI.hpp"
+#include"Animation.hpp"
 
 #ifdef __linux__
 #include"Linux.hpp"
@@ -122,29 +123,53 @@ namespace Kat
 	{
 		void Paint(CrossPlatform::Graphic* graphic)override
 		{
-			auto marign = GetRelativeMarign(owner);
-            Rect size = CrossPlatform::FormManager::singleton->GetFormRect((Form*)owner);
-			Rect rect = Rect(marign.left, marign.top, size.right - marign.right, size.bottom - marign.bottom);
-			Color color = Background;
-			graphic->FillRectangle(rect, &color);
+			graphic->FillRectangle(Marign(0,0,0,0), color);
 		}
 	public:
-		Property<Color> Background;
+		Property<Color*> color;
 		Rectangle() = delete;
-		Rectangle(Marign rect, Color background)
+		Rectangle(Marign marign, Color color)
 		{
-			Left = rect.left;
-			Top = rect.top;
-			Right = rect.right;
-			Bottom = rect.bottom;
-			Background = Property<Color>(callback, background);
+			Left = marign.left;
+			Top = marign.top;
+			Right = marign.right;
+			Bottom = marign.bottom;
+			color = Property<Color>(callback, color);
 		}
 	};
-	Rectangle* CreateRectangle(Marign rect, Color background)
+	Rectangle* CreateRectangle(Marign marign, Color background)
 	{
-		Rectangle* tmp = new Rectangle(rect, background);
+		Rectangle* tmp = new Rectangle(marign, background);
 		return tmp;
 	}
+
+	class RectangleBorder:public Element
+	{
+		void Paint(CrossPlatform::Graphic* graphic)override
+		{
+			graphic->FillRectangle(Marign(0,0,0,0), color);
+		}
+	public:
+		Property<Color*> color;
+		RectangleBorder() = delete;
+		RectangleBorder(Marign marign, Color color)
+		{
+			Left = marign.left;
+			Top = marign.top;
+			Right = marign.right;
+			Bottom = marign.bottom;
+			color = Property<Color>(callback, color);
+		}
+	};
+
+	// class Button:public Element
+	// {
+	// public:
+	// 	Button(Marign marign,std::string text)
+	// 	{
+
+	// 	}
+	// };
 
 	void StartUp(Kat::Form& form)
 	{
