@@ -5,7 +5,6 @@
 #include"Element.hpp"
 namespace Kat
 {
-	typedef std::function<void()> Event;
 
 	class Form:public Element
 	{
@@ -25,7 +24,7 @@ namespace Kat
 #ifdef __linux__
         enum GraphicBackends
 		{
-			Cario = 0
+			Xlib = 0
         }Render;
 #elif _WIN32
         enum GraphicBackends
@@ -68,12 +67,12 @@ namespace Kat
 			Marign offset;
 			virtual void Begin() = 0;
 			virtual void Clear(Color color) = 0;
-			virtual void DrawRectangle(Marign marign, Color* color,float strokeWidth=1.0) = 0;
 			virtual void FillRectangle(Marign marign, Color* color) = 0;
-			virtual void DrawEllipse(Marign marign, Color* color,float strokeWidth=1.0) = 0;
-			virtual void FillEllipse(Marign marign, Color* color) = 0;
+			// virtual void DrawRectangle(Marign marign, Color* color,float strokeWidth=1.0) = 0;
+			// virtual void DrawEllipse(Marign marign, Color* color,float strokeWidth=1.0) = 0;
+			// virtual void FillEllipse(Marign marign, Color* color) = 0;
+			// virtual void DrawText(Marign marign,Color* color,std::string text) = 0;
 			virtual void Resize(int width, int height) = 0;
-			virtual void DrawText(Marign marign,Color* color,std::string text) = 0;
 			virtual void End() = 0;
 			//virtual void DrawLine(Point begin, Point end, int Stroke, Color color) = 0;
 			//virtual void DrawArc(Point pos, int startAngle, int endAngle) = 0;

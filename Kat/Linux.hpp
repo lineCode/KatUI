@@ -10,81 +10,53 @@ namespace Kat
 {
     namespace CrossPlatform
     {
+		class Linux_Manager;
 
-
-        
-
-        class Linux_X_WndManager;
-		class Linux_X_Handler;
-		class Linux_X_Graphic:public IGraphic
+		class Linux_Graphic:public Graphic
 		{
-			friend Linux_X_WndManager;
-			Linux_X_Graphic()=default;
+			friend Linux_Manager;
+			Linux_Graphic()=default;
 		public:
-			void Begin(){}
-			void Clear(DataHelper::Color color){}
-			void FillRectangle(Rect rect, DataHelper::Color* color){}
-			void Resize(int width, int height){}
-			void End(){}
+			void Begin()override{}
+			void Clear(Color color)override{}
+			void FillRectangle(Marign marign, Color* color)override{}
+			void Resize(int width, int height)override{}
+			void End()override{}
 		};
 
-		class Linux_X_WndHandler :public IWindowHandler
+		class Linux_Form :public Form
 		{
-			friend Linux_X_WndManager;
+			friend Linux_Manager;
 			xlib::Window window = 0;
 			xlib::Display* display = nullptr;
 			int screen = 0;
+			Graphic* graphic;
 		public:
-			Rect GetRect()override
-			{
-				XWindowAttributes attributes;
-				XGetWindowAttributes(display, window, &attributes);
-				
-				return Rect(attributes.x,attributes.y,attributes.width,attributes.height);
-			}
-			void SetWindowRect(Rect rect)override
-			{
-				XMoveResizeWindow(display,window,rect.left,rect.top,rect.right,rect.bottom);
-			}
 			void Show()override
 			{
 				XMapWindow(display, window);
 			}
-			void Minimize()
-			{
-				XSetWindowAttributes
-			}
-			void Maximize()
+			void Hide()override
 			{
 
 			}
-			string GetTitle()
+			void Minimize()override
 			{
 
 			}
-			void SetTitle(string title)
+			void Maximize()override
 			{
 
 			}
-
 		};
 
-		class Linux_X_WndManager :public IWindowManager
+		class Linux_Manager :public FormManager
 		{
 			
 		public:
-			Window* Find(IWindowHandler* handler)override
+			Kat::Form* Create(std::string title, int x, int y, int width, int height)
 			{
-
-			}
-			int Count()override
-			{
-
-			}
-
-			IWindowHandler* Create(std::string title, int x, int y, int width, int height, Window* window)override
-			{
-				Linux_X_WndHandler* handler = new Linux_X_WndHandler();
+				Linux_Form* form = new Linux_Form();
 				xlib::Display* display = xlib::XOpenDisplay(NULL);
 				if(display==NULL)
 				{
@@ -97,69 +69,72 @@ namespace Kat
                                             BlackPixel(display, screen_number), WhitePixel(display, screen_number));
 				  /* select kind of events we are interested in */
 				xlib::XSelectInput(display, wnd, ExposureMask | KeyPressMask | StructureNotifyMask);
-				handler->window=wnd;
-				handler->display=display;
-				handler->screen=screen_number;
-				collection.insert(std::make_pair(handler,window));
-				return handler;
+				form->window=wnd;
+				form->display=display;
+				form->screen=screen_number;
+				form->graphic=CreateGraphic(form);
+				FormManager::singleton->forms.push_back(form);
+				return form;
 			}
-			void Delete(IWindowHandler* handler)override
+			void Delete(Kat::Form* form)
 			{
-				IWindowHandler* target = nullptr;
-				Linux_X_WndHandler* h = (Linux_X_WndHandler*)handler;
-				for (auto iter = collection.begin();iter != collection.end();iter++)
+				xlib::XDestroyWindow(((Linux_Form*)form)->display,((Linux_Form*)form)->window);
+				//CrossPlatform::FormManager::singleton->forms.erase(form);
+			}
+            Rect GetFormRect(Kat::Form* form)
+			{
+				xlib::XWindowAttributes attributes;
+				XGetWindowAttributes(((Linux_Form*)form)->display, ((Linux_Form*)form)->window, &attributes);
+				return Rect(attributes.x,attributes.y,attributes.width,attributes.height);			
+			}
+            void SetFormRect(Kat::Form* form,Rect rect)
+			{
+				xlib::XMoveResizeWindow(((Linux_Form*)form)->display,((Linux_Form*)form)->window,rect.left,rect.top,rect.right,rect.bottom);
+			}
+			Timer* CreateTimer(int interval)
+			{
+
+			}
+			Graphic* CreateGraphic(Kat::Form* form)override
+			{
+				return new Linux_Graphic();
+			}
+			void MainLoop(Kat::Form* form)override
+			{
+				form->Show();
+				Args args;
+				bool done = false;
+				for(auto iter=CrossPlatform::FormManager::singleton->forms.begin();
+						 iter!=CrossPlatform::FormManager::singleton->forms.end();iter++)	
 				{
-					Linux_X_WndHandler* tmp = (Linux_X_WndHandler*)iter->first;
-					if (tmp->window == h->window)
+					xlib::XEvent event;
+					Linux_Form* form = (Linux_Form*)(*iter);
+					while (!done) 
 					{
-						target = iter->first;
-						break;
+						xlib::XNextEvent(((Linux_Form*)form)->display,&event);
+						switch(event.type)
+						{
+						case Expose:
+							xlib::XFillRectangle(((Linux_Form*)form)->display,((Linux_Form*)form)->window, DefaultGC(((Linux_Form*)form)->display,((Linux_Form*)form)->screen), 20, 20, 100, 100);
+							args.graphic=form->graphic;
+							args.msg=Message::Paint;
+							form->ProcessMsg(args);
+							break;
+						case KeyPress:
+							xlib::XDestroyWindow(((Linux_Form*)form)->display, ((Linux_Form*)form)->window);
+							break;
+						case DestroyNotify:
+							done = true;
+							break;
+						case ClientMessage:
+							break;
+						}
 					}
 				}
-				xlib::XDestroyWindow(h->display,h->window);
-				collection.erase(target);
-				print(collection.size());
 			}
-
-			IGraphic* CreateGraphic(IWindowHandler* handler)override
-			{
-				return new Linux_X_Graphic();
-			}
-			void MainLoop()override;
 		};
-		IWindowManager* WindowManager = new Linux_X_WndManager();
+		FormManager* FormManager::singleton = new Linux_Manager();
     }
 }
 
 #endif
-
-// void Linux_X_WndManager::MainLoop()
-// 		{
-// 			bool done = false;
-// 			for(auto iter=collection.begin();iter!=collection.end();iter++)	
-// 			{
-// 				xlib::XEvent event;
-// 				Linux_X_WndHandler* handler = (Linux_X_WndHandler*)(iter->first);
-// 				Window* window = iter->second;
-// 				while (!done) 
-// 				{
-// 					xlib::XNextEvent(handler->display,&event);
-// 					switch(event.type)
-// 					{
-// 						case Expose:
-// 						xlib::XFillRectangle(handler->display,handler->window, DefaultGC(handler->display,handler->screen), 20, 20, 100, 100);
-// 						window->ProcessMsg(KatUI::Args(Message::Paint,window->graphic));
-// 						break;
-// 						case KeyPress:
-// 						xlib::XDestroyWindow(handler->display, handler->window);
-// 						break;
-// 						case DestroyNotify:
-// 						done = true;
-// 						break;
-// 						case ClientMessage:
-// 						break;
-// 					}
-// 				}
-
-
-// 			}	

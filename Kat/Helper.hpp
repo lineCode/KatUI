@@ -30,12 +30,12 @@ namespace Kat
 	
 	class Style
     {
-        std::list<IAnimation*> normal;
-        std::list<IAnimation*> hightlight;
-        std::list<IAnimation*> pressed;
-        std::list<IAnimation*> selected;
-        std::list<IAnimation*> appear;
-        std::list<IAnimation*> disappear;
+        std::list<Animation::IAnimation*> normal;
+        std::list<Animation::IAnimation*> hightlight;
+        std::list<Animation::IAnimation*> pressed;
+        std::list<Animation::IAnimation*> selected;
+        std::list<Animation::IAnimation*> appear;
+        std::list<Animation::IAnimation*> disappear;
     };
 
 	// template<typename T>

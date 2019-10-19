@@ -44,7 +44,7 @@ namespace Kat
             time_t duringTime,beginTime;
             CrossPlatform::Timer* timer;
         public:
-            void Liner(Property<T> property,T begin,T end,time_t duringTime)
+            Liner(Property<T> property,T begin,T end,time_t duringTime)
             {
                 this->property=property;
                 this->begin=begin;
@@ -61,14 +61,14 @@ namespace Kat
                     time_t now = time(NULL);
                     if(beginTime+duringTime>now)
                     {
-                        property = last_value+(now-beingTime/duringTime)*(end-begin);
+                        property = last_value+(now-beginTime/duringTime)*(end-begin);
                     }
                     else
                     {
                         property = end;
                         timer->UnEnable();
                     }
-                }
+                };
                 timer->Enable();
             }
 

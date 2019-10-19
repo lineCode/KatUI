@@ -8,7 +8,8 @@ namespace Kat
         class Graphic;
     }
 	class Form;
-
+	
+	typedef std::function<void()> Event;
 	typedef std::function<void(Point,ButtonType)> MouseEvent;
 
     class Element
