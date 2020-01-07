@@ -1,26 +1,31 @@
 #ifndef KAT_WIN32
 #define KAT_WIN32
 #include<string>
-#include<windef.h>
-#include<winuser.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+//#include<windef.h>
+//#include<winuser.h>
 #include<d2d1.h>
 #include<d2d1helper.h>
 #include<d2d1.h>
 #include<Gdiplus.h>
 #include<d2d1helper.h>
+#include<stdio.h>
+#include<exception>
 #pragma comment(lib,"d2d1.lib")
 #pragma comment(lib,"Gdiplus.lib")
 
-#include"Element.hpp"
+#include"Helper.hpp"
+#include"Layout.hpp"
+#include"Widget.hpp"
+#include"PlatformAPI.hpp"
 
 namespace Kat
 {
-    namespace CrossPlatform
-    {
-       
+     
 		class Win32_Graphic;
         class Win32_WManager;
-        class Win32_Form:public Kat::Form
+        class Win32_Form:public Form
         {
 			friend FormManager;
 			friend Win32_WManager;
@@ -28,17 +33,15 @@ namespace Kat
             friend Win32_WManager;
 
 			HWND hwnd = 0;
-			Graphic* graphic = nullptr;
+
 			std::function<void()> callback = [&]{
-				Args args;
-				args.graphic=graphic;
-				args.msg=Message::Paint;
-				ProcessMsg(args);//--------------------------------------- something wrong here
+				Message msg;
+				msg.graphic=graphic;
+				msg.content=Message::Paint;
+				ProcessMsg(msg);//--------------------------------------- something wrong here
 			};
 
         public:
-
-			Property<Color> Background = Property<Color>(callback, Color(1, 1, 1));
 
             void Show()override
             {
@@ -57,7 +60,7 @@ namespace Kat
 				ShowWindow(hwnd,SW_MINIMIZE);
             }
 		private:
-			void Paint(CrossPlatform::Graphic* graphic)override
+			void Paint(Graphic* graphic)override
 			{
 				graphic->Clear(Background);
 			}
@@ -93,55 +96,82 @@ namespace Kat
 			static ID2D1Factory* factory;
 			ID2D1HwndRenderTarget* target = nullptr;
 			Win32_Graphic(Kat::Form* form);
-			D2D1_RECT_F& get_RECTF(Marign marign)
+			D2D1_RECT_F get_RECTF(Rect rect)
 			{
-				return D2D1::RectF(offset.left+marign.left,
-									offset.top+marign.top, 
-									width-marign.right-marign.left-offset.right-offset.left,
-									height-marign.top-marign.bottom-offset.top-offset.bottom);
+				return D2D1::RectF(rect.x,rect.y,rect.w + rect.x,rect.h + rect.y);
+			}
+			ID2D1SolidColorBrush* getBrush(Color* color)
+			{
+				ID2D1SolidColorBrush* brush = nullptr;
+				printf("%f,%f,%f,%f\n", (float)color->r, (float)color->g, (float)color->b, (float)color->a);
+				target->CreateSolidColorBrush(D2D1::ColorF(color->r,color->g,color->b,color->a), &brush);
+				if(brush == nullptr)throw std::runtime_error("Direct2D错误：画刷申请失败");
+				return brush;
+			}
+			void release(ID2D1SolidColorBrush* brush)
+			{
+				if(brush)brush->Release();
+				brush = nullptr;
 			}
 		public:
 			void Begin()override
 			{
 				target->BeginDraw();
 			}
-			void FillRectangle(Marign marign, Color* color)override
+			void FillRectangle(Rect rect, Color color)override
 			{
-				ID2D1SolidColorBrush* brush;
-				target->CreateSolidColorBrush(D2D1::ColorF(color->r, color->g, color->b, color->a), &brush);
-				target->FillRectangle(get_RECTF(marign), brush);
+				auto brush = getBrush(&color);
+				target->FillRectangle(get_RECTF(rect), brush);
+				release(brush);
 			}
-			void DrawRectangle(Marign marign,Color* color,float strokeWidth=1.0)override
+			void DrawRectangle(Rect rect,Color color,float strokeWidth=1.0)override
 			{
-				ID2D1SolidColorBrush* brush;
-				target->CreateSolidColorBrush(D2D1::ColorF(color->r, color->g, color->b, color->a), &brush);
-				target->DrawRectangle(get_RECTF(marign), brush,strokeWidth);
+				auto brush = getBrush(&color);
+				target->DrawRectangle(get_RECTF(rect), brush,strokeWidth);
+				release(brush);
 			}
-			void FillEllipse(Marign marign,Color* color)override
+			void FillRoundRectangle(Rect rect, Color color, float corner)
 			{
-				ID2D1SolidColorBrush* brush;
+				auto brush = getBrush(&color);
+				target->FillRoundedRectangle(D2D1::RoundedRect(get_RECTF(rect),corner,corner),brush);
+				release(brush);
+			}
+			void DrawRoundRectangle(Rect rect, Color color, float corner, float strokeWidth = 1.0)
+			{
+				auto brush = getBrush(&color);
+				target->DrawRoundedRectangle(D2D1::RoundedRect(get_RECTF(rect), corner, corner), brush);
+				release(brush);
+			}
+			void FillEllipse(Rect rect,Color color)override
+			{
+				auto brush = getBrush(&color);
 				D2D1_ELLIPSE ellipse;
-				auto rect = get_RECTF(marign);
-				ellipse.point=D2D1::Point2F((rect.right-rect.left)/2,(rect.bottom-rect.top)/2);
-				ellipse.radiusX=(rect.right-rect.left)/2;
-				ellipse.radiusY=(rect.bottom-rect.top)/2;
-				target->CreateSolidColorBrush(D2D1::ColorF(color->r, color->g, color->b, color->a), &brush);
+				ellipse.point = D2D1::Point2F(rect.x + rect.w / 2, rect.y + rect.h / 2);
+				ellipse.radiusX = rect.w / 2;
+				ellipse.radiusY = rect.h / 2;
 				target->FillEllipse(&ellipse, brush);
+				release(brush);
 			}
-			void DrawEllipse(Marign marign,Color* color,float strokeWidth=1.0)override
+			void DrawEllipse(Rect rect,Color color,float strokeWidth=1.0)override
 			{
-				ID2D1SolidColorBrush* brush;
+				auto brush = getBrush(&color);
 				D2D1_ELLIPSE ellipse;
-				auto rect = get_RECTF(marign);
-				ellipse.point=D2D1::Point2F((rect.right-rect.left)/2,(rect.bottom-rect.top)/2);
-				ellipse.radiusX=(rect.right-rect.left)/2;
-				ellipse.radiusY=(rect.bottom-rect.top)/2;
-				target->CreateSolidColorBrush(D2D1::ColorF(color->r, color->g, color->b, color->a), &brush);
-				target->DrawEllipse(&ellipse, brush,strokeWidth);
+				ellipse.point = D2D1::Point2F(rect.x + rect.w / 2, rect.y + rect.h / 2);
+				ellipse.radiusX = rect.w / 2;
+				ellipse.radiusY = rect.h / 2;
+				target->DrawEllipse(&ellipse, brush, strokeWidth);
+				release(brush);
+			}
+			void DrawString(Rect rect, Color color, std::string text)override
+			{
+				auto brush = getBrush(&color);
+				//target->DrawTextA
+				release(brush);
 			}
 			void Clear(Color color)override
 			{
-				target->Clear(D2D1::ColorF(color.r, color.g, color.b, color.a));
+				target->Clear(D2D1::ColorF(color.r,color.g,color.b,color.a));
+				/*printf("R:%f G:%f B:%f A:%f\n",(float)color.r, (float)color.g, (float)color.b, (float)color.a);*/
 			}
 			void Resize(int width, int height)override
 			{
@@ -216,7 +246,6 @@ namespace Kat
                 Win32_Form* form = new Win32_Form();
                 form->hwnd=hwnd;
 				form->graphic = CreateGraphic(form);
-				form->owner=form;
 				forms.push_back(form);
 				return form;
             }
@@ -237,11 +266,11 @@ namespace Kat
             {
                 LPRECT rect = new RECT();
 				int result = GetClientRect(((Win32_Form*)form)->hwnd, rect);
-				return Rect(rect->left, rect->top, rect->right, rect->bottom);
+				return Rect(rect->left, rect->top, rect->bottom, rect->right);
             }
             void SetFormRect(Kat::Form* form,Rect rect)override
             {
-                SetWindowPos(((Win32_Form*)form)->hwnd, HWND_TOPMOST, rect.left, rect.top, rect.right, rect.bottom, SWP_SHOWWINDOW);
+                SetWindowPos(((Win32_Form*)form)->hwnd, HWND_TOPMOST, rect.x, rect.y, rect.w, rect.h, SWP_SHOWWINDOW);
             }
 
 
@@ -257,63 +286,50 @@ namespace Kat
 			D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &factory);
 			Rect rect = FormManager::singleton->GetFormRect(form);
 			factory->CreateHwndRenderTarget(D2D1::RenderTargetProperties(),
-											D2D1::HwndRenderTargetProperties(((Win32_Form*)form)->hwnd, D2D1::SizeU(rect.right, rect.bottom)),
+											D2D1::HwndRenderTargetProperties(((Win32_Form*)form)->hwnd, D2D1::SizeU(rect.w, rect.h)),
 											&target);
 		}
 
-        LRESULT CALLBACK Win32_WManager::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+    	LRESULT CALLBACK Win32_WManager::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             Win32_Form* target = ((Win32_WManager*)FormManager::singleton)->GetWin32Form(hWnd);
-			Args args;
+			Rect tmp,rect;
+			Message args;
 			if(target!=nullptr)
 			{
 				switch (message)
 				{
 				case WM_TIMER:
-					CrossPlatform::FormManager::singleton->timers[(int)wParam]->Tick();
+					FormManager::singleton->timers[(int)wParam]->Tick();
+					break;
+				case WM_SIZE:
+					target->ProcessMsg(Message::Resize);
 					break;
 				case WM_PAINT:
 					PAINTSTRUCT ps;
 					BeginPaint(hWnd, &ps);
-					target->graphic->Begin();
-					args.msg=Message::Paint;
-					args.graphic=target->graphic;
-					Rect rect = CrossPlatform::FormManager::singleton->GetFormRect(target);
-					target->foreach([&](Element* element) {
-						args.graphic->offset = element->GetRelativeMarign(target);
-						element->ProcessMsg(args);
-						});
-					target->graphic->End();
+					target->ProcessMsg(Message::Paint);
 					EndPaint(hWnd, &ps);
 					break;
-				case WM_SIZE:
-					auto tmp = CrossPlatform::FormManager::singleton->GetFormRect(target);
-					target->graphic->Resize(tmp.right,tmp.bottom);
-					args.graphic=target->graphic;
-					args.msg=Message::Resize;
-					target->ProcessMsg(args);
-					break;
 				case WM_MOUSEMOVE:
-					FormManager::singleton->mouse.x=LOWORD(lParam);
-					FormManager::singleton->mouse.y=HIWORD(lParam);
-					args.msg=Message::MouseMove;
-					args.mouse=FormManager::singleton->mouse;
-					target->foreach([&](Element* element){element->ProcessMsg(args);});
+					args.mouse = new Point(LOWORD(lParam),HIWORD(lParam));
+					args.content=Message::MouseMove;
+					target->ProcessMsg(args);
 					break;
 				case WM_LBUTTONDOWN:
 				case WM_LBUTTONUP:
-					args.button=ButtonType::left;
+					args.sender = Message::Sender::LeftBtn;
 					break;
 				case WM_RBUTTONDOWN:
 				case WM_RBUTTONUP:
-					args.button=ButtonType::right;
+					args.sender = Message::Sender::RightBtn;
 					break;
 				case WM_MBUTTONDOWN:
 				case WM_MBUTTONUP:
-					args.button=ButtonType::middle;
+					args.sender = Message::Sender::MidBtn;
 					break;
 				case WM_DESTROY:
-					CrossPlatform::FormManager::singleton->Delete(target);
+					target->ProcessMsg(Message::Destory);
 					PostQuitMessage(0);
 					break;
 				default:
@@ -325,14 +341,14 @@ namespace Kat
 				case WM_LBUTTONDOWN:
 				case WM_MBUTTONDOWN:
 				case WM_RBUTTONDOWN:
-					args.msg=MouseDown;
-					target->foreach([&](Element* element){element->ProcessMsg(args);});
+					args.content=Message::MouseDown;
+					target->ProcessMsg(args);
 					break;
 				case WM_LBUTTONUP:
 				case WM_MBUTTONUP:
 				case WM_RBUTTONUP:
-					args.msg=MouseUp;
-					target->foreach([&](Element* element){element->ProcessMsg(args);});
+					args.content=Message::MouseUp;
+					target->ProcessMsg(args);
 					break;
 				}
 
@@ -343,7 +359,7 @@ namespace Kat
 			}
             return 0;
         }
-    }
+    
 }
 
 #endif
