@@ -57,6 +57,16 @@ namespace Kat
 		//public:
 		};
 
+		class Bitmap
+		{
+		public:
+			virtual ~Bitmap() = 0;
+			virtual Size getSize() = 0;
+		};
+		//太晚了 这么写的原因以后再研究
+		Bitmap::~Bitmap(){}
+		//https://www.cnblogs.com/chio/archive/2007/09/10/888260.html
+
 		class Timer
 		{
 		public:
@@ -78,9 +88,10 @@ namespace Kat
 			virtual void Delete(Kat::Form* form) = 0;
             virtual void MainLoop(Kat::Form* form)=0;
             virtual Rect GetFormRect(Kat::Form* form)=0;
-            virtual void SetFormRect(Kat::Form* form,Rect rect)=0;
-			virtual Graphic* CreateGraphic(Kat::Form* form)=0;
+            virtual void SetFormRect(Kat::Form* form,Rect rect) = 0;
+			virtual Graphic* CreateGraphic(Kat::Form* form) = 0;
 			virtual Timer* CreateTimer(int interval) = 0;
+			virtual Bitmap* loadImage(std::wstring path) = 0;
 		};
 
 		Layout::operator Kat::Rect()
@@ -166,7 +177,7 @@ namespace Kat
 			//virtual void DrawLine(Point begin, Point end, int Stroke, Color color) = 0;
 			//virtual void DrawArc(Point pos, int startAngle, int endAngle) = 0;
 			//virtual void FillPie(Point pos, int startAngle, int endAngle) = 0;
-			//virtual void DrawImage(Rect rect, IImageHander image) = 0;
+			virtual void DrawBitmap(Rect rect, Bitmap* bitmap,float opacity = 1) = 0;
 			//virtual IImageHander CreateImage(std::string path) = 0;
 
 		};

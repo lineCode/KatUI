@@ -2,9 +2,11 @@
 #define KAT_WIN32
 #include<string>
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include<windows.h>
+#include<wincodec.h>
 //#include<windef.h>
 //#include<winuser.h>
+#include<map>
 #include<d2d1.h>
 #include<d2d1helper.h>
 #include<d2d1.h>
@@ -14,7 +16,7 @@
 #include<exception>
 #pragma comment(lib,"d2d1.lib")
 #pragma comment(lib,"Gdiplus.lib")
-
+#pragma comment(lib,"windowscodecs.lib")
 #include"Helper.hpp"
 #include"Layout.hpp"
 #include"Widget.hpp"
@@ -67,6 +69,61 @@ namespace Kat
 
         };
 
+		class Win32_Bitmap :public Bitmap
+		{
+			friend Win32_Graphic;
+			static IWICImagingFactory* wic_factory;
+			static IWICFormatConverter* converter;
+			IWICBitmapDecoder* decoder = nullptr;
+			IWICBitmapFrameDecode* frame = nullptr;
+			std::map<ID2D1HwndRenderTarget*,ID2D1Bitmap*> buffer;
+		public:
+			Win32_Bitmap(std::wstring path);
+			Size getSize()override
+			{
+				UINT w,h;
+				frame->GetSize(&w,&h);
+				return Size{(int)w,(int)h};
+			}
+			ID2D1Bitmap* getBitmap(ID2D1HwndRenderTarget* target)
+			{
+				auto iter = buffer.find(target);
+				if (iter == buffer.end())
+				{
+					ID2D1Bitmap* bitmap = nullptr;
+					target->CreateBitmapFromWicBitmap(Win32_Bitmap::converter, &bitmap);
+					buffer.insert(std::make_pair(target,bitmap));
+					return bitmap;
+				}
+				else
+				{
+					return iter->second;
+				}
+			}
+			~Win32_Bitmap()override
+			{
+				for (auto iter = buffer.begin(); iter != buffer.end(); iter++)
+				{
+					iter->second->Release();
+				}
+			}
+		};
+		IWICFormatConverter* Win32_Bitmap::converter = nullptr;
+		IWICImagingFactory* Win32_Bitmap::wic_factory = nullptr;
+		Win32_Bitmap::Win32_Bitmap(std::wstring path)
+		{
+			if (Win32_Bitmap::wic_factory == nullptr)
+			{
+				CoInitialize(NULL);
+				CoCreateInstance(CLSID_WICImagingFactory, NULL, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&Win32_Bitmap::wic_factory));
+				wic_factory->CreateFormatConverter(&Win32_Bitmap::converter);
+			}
+			wic_factory->CreateDecoderFromFilename(path.c_str(), NULL, GENERIC_READ, WICDecodeMetadataCacheOnLoad, &decoder);
+			decoder->GetFrame(0, &frame);
+			converter->Initialize(frame, GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, NULL, 0, WICBitmapPaletteTypeMedianCut);
+		}
+
+
 		class Win32_Timer:public Timer
 		{
 			friend Win32_WManager;
@@ -103,9 +160,9 @@ namespace Kat
 			ID2D1SolidColorBrush* getBrush(Color* color)
 			{
 				ID2D1SolidColorBrush* brush = nullptr;
-				printf("%f,%f,%f,%f\n", (float)color->r, (float)color->g, (float)color->b, (float)color->a);
+				//printf("%f,%f,%f,%f\n", (float)color->r, (float)color->g, (float)color->b, (float)color->a);
 				target->CreateSolidColorBrush(D2D1::ColorF(color->r,color->g,color->b,color->a), &brush);
-				if(brush == nullptr)throw std::runtime_error("Direct2D错误：画刷申请失败");
+				//if(brush == nullptr)throw std::runtime_error("Direct2D错误：画刷申请失败");
 				return brush;
 			}
 			void release(ID2D1SolidColorBrush* brush)
@@ -168,6 +225,10 @@ namespace Kat
 				//target->DrawTextA
 				release(brush);
 			}
+			void DrawBitmap(Rect rect, Bitmap* bitmap, float opacity = 1)override
+			{
+				target->DrawBitmap(((Win32_Bitmap*)bitmap)->getBitmap(target),get_RECTF(rect),opacity);
+			}
 			void Clear(Color color)override
 			{
 				target->Clear(D2D1::ColorF(color.r,color.g,color.b,color.a));
@@ -210,6 +271,11 @@ namespace Kat
             {
 				return new Win32_Graphic(form);
             }
+
+			Bitmap* loadImage(std::wstring path)override
+			{
+				return new Win32_Bitmap(path);
+			}
 
 			Timer* CreateTimer(int interval)override
 			{

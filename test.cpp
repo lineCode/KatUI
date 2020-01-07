@@ -14,7 +14,8 @@ int main()
 	auto b = new Kat::RoundRectangle(10,Color(0, 1, 1, 0), 0xFF0000);
 	b->add(l,r1);
 	//form->add(new Layout(60),b);
-	form->add(new Layout(0),b);
+
+	form->add(new Layout(40),new Image(loadImage(L"C:\\Users\\Yorkin\\Desktop\\123.jpg")));
 
     startUp(form);
 

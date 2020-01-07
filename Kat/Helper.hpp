@@ -115,7 +115,8 @@ namespace Kat
 
 	class Size
 	{
-
+	public:
+		int width = 0,height = 0;
 	};
 
 	class Corner

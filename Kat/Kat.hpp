@@ -43,6 +43,10 @@ namespace Kat
 		form->Show();
 		FormManager::singleton->MainLoop(form);
 	}
+	Bitmap* loadImage(std::wstring path)
+	{
+		return FormManager::singleton->loadImage(path);
+	}
 	// class SheetItem
 	// {
 	// public:
@@ -189,6 +193,32 @@ namespace Kat
 		 }
 	 public:
 		 Ellipse(Color background, Color foreground):Geometry(background, foreground){};
+	 };
+
+	 class Image:public Widget
+	 {
+		 Bitmap *mbitmap = nullptr;
+		 float *mopacity = nullptr;
+		 void Paint(Graphic* graphic)override
+		 {
+			 graphic->DrawBitmap(*layout,mbitmap,*mopacity);
+		 }
+	 public:
+		 Image(Bitmap* bitmap,float opacity = 1)
+		 {
+			 mbitmap = bitmap;
+			 mopacity = new float(opacity);
+		 }
+
+		 Property<float> opacity = Property<float>(
+			 [&]()	{ return mopacity; },
+			 [&](float *value){ delete mopacity;mopacity = value;if(Change)Change(); }
+		 );
+
+		 ~Image()
+		 {
+			 mbitmap->~Bitmap();
+		 }
 	 };
 
 	 //class Text :public Widget
